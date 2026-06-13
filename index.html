@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Wizard Discord — Game Review</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239b4dff'%3E%3Cpath d='M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z'/%3E%3C/svg%3E">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.rawg.io">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* ... все стили как в предыдущем рабочем коде (сохраняем) ... */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: linear-gradient(145deg, #a55ef0, #3b0b6b); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; padding: 2rem; display: flex; justify-content: center; min-height: 100vh; -webkit-user-select: none; user-select: none; }
+        .page-wrapper { position: relative; max-width: 1300px; width: 100%; }
+        .user-side-panel {
+            position: absolute; top: 0; left: 100%; margin-left: 1.5rem; width: 220px;
+            background: rgba(255,255,255,0.96); border-radius: 1.5rem; padding: 1.2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 0.8rem;
+            animation: fadeSlideUp 0.3s ease-out;
+        }
+        .user-side-panel .panel-username { font-size: 1.2rem; font-weight: 800; color: #3c1a6e; text-align: center; -webkit-user-select: text; user-select: text; word-break: break-word; }
+        .user-side-stats { display: flex; gap: 0.6rem; }
+        .user-side-stat { flex: 1; background: #f1eaff; border-radius: 1rem; padding: 0.6rem 0.4rem; text-align: center; transition: 0.15s; }
+        #statRatedBlock:hover { background: #e2d4ff; transform: scale(1.03); }
+        .user-side-stat .stat-value { font-size: 1.3rem; font-weight: 800; color: #7b2eda; font-family: 'Inter', sans-serif; }
+        .user-side-stat .stat-label { font-size: 0.65rem; color: #6e53a3; font-weight: 600; margin-top: 0.1rem; }
+        .user-side-panel .logout-btn { width: 100%; }
+        @media (max-width: 1560px) {
+            .user-side-panel { position: static; left: auto; margin-left: 0; margin-bottom: 1.5rem; width: 100%; flex-direction: row; align-items: center; }
+            .user-side-panel .panel-username { text-align: left; flex: 1; }
+            .user-side-stats { flex: 2; }
+            .user-side-panel .logout-btn { width: auto; }
+        }
+        .review-card-game, .review-detail-title, .review-card-user, .review-detail-user, #currentUsername, .review-card-date, .review-detail-date, #gameName { -webkit-user-select: text; user-select: text; }
+        .container { max-width: 1300px; width: 100%; background: rgba(255,255,255,0.96); border-radius: 2rem; padding: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .site-header { text-align: center; margin-bottom: 1rem; }
+        .site-header h1 { font-size: 2.5rem; background: linear-gradient(135deg, #7b2eda, #3f0c7a); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 0.2rem; display: inline-block; transition: transform 0.25s cubic-bezier(0.2,0.9,0.4,1.1), filter 0.25s ease; cursor: default; }
+        .site-header h1:hover { transform: scale(1.06) rotate(-1deg); filter: drop-shadow(0 4px 12px rgba(123,46,218,0.5)); }
+        .site-header .subtitle { font-size: 1rem; color: #6e53a3; letter-spacing: 1px; }
+        .main-content { display: none; animation: fadeSlideUp 0.3s ease-out; }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes shimmer { 0% { transform: translateX(-100%) rotate(25deg); } 100% { transform: translateX(100%) rotate(25deg); } }
+        @keyframes starTwinkle { 0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.2); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.8); } }
+        @keyframes cardHover { from { transform: translateY(0); box-shadow: 0 2px 5px rgba(0,0,0,0.1); } to { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); } }
+        .auth-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.2s ease; }
+        .auth-modal { background: white; border-radius: 2rem; padding: 2rem; width: 90%; max-width: 450px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: scaleIn 0.25s cubic-bezier(0.2,0.9,0.4,1.1); }
+        .auth-modal input { width: 100%; padding: 0.7rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 2rem; font-size: 1rem; }
+        .auth-modal button { width: 100%; padding: 0.7rem; background: #9b4dff; color: white; border: none; border-radius: 2rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .auth-modal button:disabled { background: #cccccc; cursor: not-allowed; }
+        .auth-modal button:hover:not(:disabled) { transform: scale(1.02); background: #7b2eda; }
+        .auth-modal .switch { text-align: center; margin-top: 1rem; color: #7b2eda; cursor: pointer; }
+        .error-msg { color: red; font-size: 0.8rem; text-align: center; margin-bottom: 0.5rem; }
+        .login-button { text-align: center; margin-top: 2rem; }
+        #mainLoginBtn { background: #9b4dff; color: white; border: none; padding: 0.8rem 2rem; border-radius: 3rem; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        #mainLoginBtn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        #mainLoginBtn:disabled { background: #cccccc; cursor: not-allowed; transform: none; }
+        .logout-btn { background: #aaaaaa; color: white; border: none; padding: 0.4rem 1rem; border-radius: 2rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
+        .logout-btn:hover { background: #9b4dff; transform: scale(1.02); }
+        .tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e0ceff; }
+        .tab { padding: 0.5rem 1.5rem; background: #f1eaff; border-radius: 2rem 2rem 0 0; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab:hover { background: #e2d4ff; transform: translateY(-2px); }
+        .tab.active { background: white; color: #7b2eda; border-top: 2px solid #a55ef0; }
+        .tab-content { display: none; animation: fadeSlideUp 0.25s ease-out; }
+        .tab-content.active { display: block; }
+        .game-row { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 2rem; background: #f1eaff; padding: 1rem; border-radius: 2rem; }
+        .game-input-group { flex: 2; max-width: 400px; position: relative; }
+        #gameName { width: 100%; padding: 0.9rem 1.2rem; font-size: 1.2rem; border-radius: 3rem; border: 1px solid #ccc; background: white; font-family: inherit; }
+        #gameName:focus { border-color: #9b4dff; outline: none; box-shadow: 0 0 0 3px rgba(155,77,255,0.2); }
+        .game-icon-wrapper { flex: 0 0 auto; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: #ede3ff; border-radius: 20px; overflow: hidden; }
+        #gameIcon { max-width: 100px; max-height: 100px; object-fit: cover; display: none; border-radius: 16px; }
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 100; max-height: 250px; overflow-y: auto; display: none; margin-top: 5px; }
+        .autocomplete-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; transition: background 0.1s; }
+        .autocomplete-item:hover { background: #f4edff; }
+        .autocomplete-icon { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+        .criterion { padding: 0.8rem; border-radius: 1.2rem; border: 2px solid #ccc; transition: all 0.2s ease; background-color: #faf7ff; font-family: 'Inter', 'Segoe UI', system-ui; }
+        .criterion:hover { animation: cardHover 0.2s forwards; }
+        .criterion > div:first-child { color: white; text-shadow: 0 0 3px black, 0 0 4px black; font-weight: 700; letter-spacing: 0.5px; }
+        .slider-container { display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem; }
+        input[type="range"] { flex: 1; height: 6px; -webkit-appearance: none; background: linear-gradient(90deg, #bc8cff, #6a2bd0); border-radius: 10px; }
+        input[type="range"]::-webkit-slider-thumb { width: 18px; height: 18px; background: white; border-radius: 50%; border: 2px solid #6b2ad0; cursor: pointer; transition: transform 0.1s; }
+        input[type="range"]:disabled { opacity: 0.5; cursor: not-allowed; }
+        .value { background: white; padding: 0.3rem 0.8rem; border-radius: 2rem; min-width: 60px; text-align: center; font-weight: bold; font-size: 1rem; border: 1.5px solid #9b4dff; transition: color 0.05s linear, border-color 0.05s linear; color: #3c1a6e; font-family: 'Inter', sans-serif; }
+        .criterion[data-score-perfect] { background: linear-gradient(135deg, #e8f1f8, #b9d4e8, #ffffff, #c9e2f2, #e8f1f8); border-color: #a9c6de; position: relative; overflow: hidden; }
+        .criterion[data-score-perfect]::after { content: ''; position: absolute; top: -50%; left: -60%; width: 200%; height: 200%; background: linear-gradient(115deg, rgba(255,255,255,0) 10%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0) 90%); transform: rotate(25deg); animation: shimmer 6s infinite; pointer-events: none; }
+        .total-section { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; background: #f1eaff; border-radius: 2rem; padding: 1rem 1.5rem; }
+        .total { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .total-label { font-size: 1.2rem; font-weight: 600; color: #3c1a6e; }
+        .total-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+        .total-score-wrapper { font-size: 2.5rem; font-weight: 800; font-family: 'Inter', sans-serif !important; letter-spacing: 0 !important; text-decoration: none; padding: 0.2rem 0.8rem; border-radius: 1.5rem; background: white !important; border: 2px solid #9b4dff; transition: all 0.2s ease; display: inline-block; }
+        .total-score-wrapper[data-total-perfect] { background: white !important; border-color: #a9c6de; color: #5a7e99 !important; }
+        .star-twinkle { position: absolute; top: -20px; right: -20px; font-size: 2rem; pointer-events: none; animation: starTwinkle 1s ease-out forwards; z-index: 10; }
+        .reset-icon-btn { background: #6c2bd9; border: none; color: white; width: 48px; height: 48px; border-radius: 50%; font-size: 1.3rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: 0.2s; flex: 0 0 auto; }
+        .reset-icon-btn:hover { transform: rotate(30deg) scale(1.1); background: #9b4dff; }
+        .save-button { background: linear-gradient(135deg, #9b4dff, #7b2eda); color: white; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 1rem; padding: 0.6rem 1.5rem; border-radius: 3rem; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.2s ease; text-shadow: 0 1px 2px rgba(0,0,0,0.5); letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .save-button:hover { transform: scale(1.02); background: linear-gradient(135deg, #b07eff, #9b4dff); box-shadow: 0 6px 15px rgba(0,0,0,0.3); }
+        .save-button:active { transform: scale(0.98); }
+        .save-button[data-perfect] { position: relative; overflow: hidden; }
+        .save-button[data-perfect]::after { content: ''; position: absolute; top: -50%; left: -60%; width: 200%; height: 200%; background: linear-gradient(115deg, rgba(255,255,255,0) 10%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 90%); transform: rotate(25deg); animation: shimmer 6s infinite; pointer-events: none; }
+        #saveMsg { margin-top: 0.5rem; text-align: center; }
+        .reviews-list { max-height: 500px; overflow-y: auto; margin-top: 1rem; }
+        .filter-bar { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+        .filter-search { flex: 1; min-width: 180px; padding: 0.6rem 1rem; border-radius: 2rem; border: 1px solid #ccc; font-family: inherit; font-size: 0.95rem; -webkit-user-select: text; user-select: text; }
+        .filter-search:focus { border-color: #9b4dff; outline: none; box-shadow: 0 0 0 3px rgba(155,77,255,0.2); }
+        .filter-btn { background: #f1eaff; color: #6e53a3; border: none; padding: 0.5rem 1rem; border-radius: 2rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.15s; }
+        .filter-btn:hover { background: #e2d4ff; transform: translateY(-1px); }
+        .filter-btn.active { background: #9b4dff; color: white; }
+        .review-card { background: #f9f5ff; border-radius: 1rem; padding: 0.8rem; margin-bottom: 0.8rem; display: flex; gap: 1rem; align-items: center; animation: fadeSlideUp 0.25s ease-out; transition: 0.2s; }
+        .review-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .review-icon { width: 50px; height: 50px; border-radius: 12px; object-fit: cover; }
+        .review-info { flex: 1; }
+        .review-game { font-weight: bold; font-size: 1.1rem; color: white; text-shadow: 0 0 2px black; }
+        .review-user { font-size: 0.8rem; color: #6e53a3; }
+        .review-score { background: #e2d0fc; display: inline-block; padding: 0.2rem 0.5rem; border-radius: 1rem; }
+        .game-error { color: #d32f2f; font-size: 0.8rem; margin-top: 0.3rem; text-align: center; display: none; }
+        footer { text-align: center; margin-top: 2rem; color: #b49af0; font-size: 0.8rem; }
+        .criteria-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; }
+
+        /* ===== Новые карточки рецензий (тема по итоговой оценке) ===== */
+        .review-card-new {
+            position: relative;
+            border-radius: 1.5rem;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            cursor: pointer;
+            border: 2px solid #ccc;
+            background-color: #faf7ff;
+            transition: all 0.2s ease;
+            animation: fadeSlideUp 0.25s ease-out;
+            overflow: hidden;
+        }
+        .review-card-new:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .review-card-new[data-score-perfect] { background: linear-gradient(135deg, #e8f1f8, #b9d4e8, #ffffff, #c9e2f2, #e8f1f8); border-color: #a9c6de; }
+        .review-card-new[data-score-perfect]::after { content: ''; position: absolute; top: -50%; left: -60%; width: 200%; height: 200%; background: linear-gradient(115deg, rgba(255,255,255,0) 10%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0) 90%); transform: rotate(25deg); animation: shimmer 6s infinite; pointer-events: none; }
+        .review-card-icon { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex: 0 0 auto; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .review-card-body { flex: 1; min-width: 0; }
+        .review-card-game { font-weight: 800; font-size: 1.15rem; color: white; text-shadow: 0 0 3px black, 0 0 4px black; letter-spacing: 0.3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .review-card-user { font-size: 0.8rem; color: #4a3470; font-weight: 600; margin-top: 2px; }
+        .review-card-meta { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; flex-wrap: wrap; }
+        .review-card-score-badge {
+            font-weight: 800; font-size: 1.3rem; padding: 0.2rem 0.8rem; border-radius: 1.2rem;
+            background: white !important; border: 2px solid #9b4dff; color: #3c1a6e; display: inline-flex; align-items: center; gap: 0.3rem;
+        }
+        .review-card-score-badge[data-perfect] { background: white !important; border-color: #a9c6de; color: #5a7e99; }
+        .review-card-date { font-size: 0.75rem; color: #8a78b5; }
+        .like-btn {
+            border: none; background: #f1eaff; color: #7b2eda; border-radius: 2rem; padding: 0.3rem 0.9rem;
+            font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: 0.15s; display: inline-flex; align-items: center; gap: 0.35rem;
+            flex: 0 0 auto;
+        }
+        .like-btn:hover { background: #e2d4ff; transform: scale(1.05); }
+        .like-btn.liked { background: linear-gradient(135deg, #ff6b9d, #ff8e8e); color: white; }
+        .like-btn.liked:hover { background: linear-gradient(135deg, #ff8eb3, #ffa3a3); }
+        .like-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* ===== Модалка с детальной рецензией ===== */
+        .review-detail-modal {
+            background: white; border-radius: 2rem; padding: 1.5rem 2rem; width: 90%; max-width: 600px;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            animation: scaleIn 0.25s cubic-bezier(0.2,0.9,0.4,1.1);
+        }
+        .review-detail-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .review-detail-icon { width: 80px; height: 80px; border-radius: 18px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .review-detail-title { font-size: 1.4rem; font-weight: 800; color: #3c1a6e; }
+        .review-detail-user { font-size: 0.9rem; color: #6e53a3; margin-top: 2px; }
+        .review-detail-date { font-size: 0.75rem; color: #8a78b5; margin-top: 2px; }
+        .review-detail-total {
+            font-size: 2.5rem; font-weight: 800; padding: 0.2rem 0.8rem; border-radius: 1.5rem;
+            background: white !important; border: 2px solid #9b4dff; color: #3c1a6e; display: inline-block; margin-left: auto;
+        }
+        .review-detail-total[data-perfect] { background: white !important; border-color: #a9c6de; color: #5a7e99; }
+        .review-detail-criteria { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin-top: 1rem; }
+        .review-detail-criterion {
+            padding: 0.6rem 0.9rem; border-radius: 1rem; font-size: 0.9rem; font-weight: 600;
+            display: flex; justify-content: space-between; align-items: center; color: white;
+            text-shadow: 0 0 3px black, 0 0 4px black;
+        }
+        .review-detail-close { display: block; margin: 1.5rem auto 0; }
+        @media (max-width: 700px) {
+            .review-detail-criteria { grid-template-columns: 1fr; }
+            .review-card-game { white-space: normal; }
+        }
+        @media (max-width: 700px) { .criteria-grid { grid-template-columns: 1fr; } .game-input-group { max-width: 100%; } .game-icon-wrapper { width: 80px; height: 80px; } .total-section { flex-direction: column; align-items: stretch; text-align: center; } .save-button { justify-content: center; } }
+    </style>
+</head>
+<body>
+<div class="page-wrapper">
+<div class="container">
+    <div class="site-header">
+        <h1>Wizard Discord</h1>
+        <div class="subtitle">Game Review service</div>
+    </div>
+    <div id="preAuthBlock" class="login-button">
+        <button id="mainLoginBtn">🔐 Войти в сервис</button>
+    </div>
+    <div id="mainContent" class="main-content">
+        <div class="tabs">
+            <div class="tab active" data-tab="rating">⭐ Оценка игры</div>
+            <div class="tab" data-tab="myReviews">📁 Мои рецензии</div>
+            <div class="tab" data-tab="reviews">🌍 Общие рецензии</div>
+        </div>
+        <div id="ratingTab" class="tab-content active">
+            <div class="game-row">
+                <div class="game-input-group">
+                    <input type="text" id="gameName" placeholder="Введите название игры (выберите из подсказок)" autocomplete="off">
+                    <div id="autocompleteList" class="autocomplete-list"></div>
+                </div>
+                <div class="game-icon-wrapper">
+                    <img id="gameIcon" src="" alt="иконка игры">
+                </div>
+                <button id="resetSlidersIcon" class="reset-icon-btn" title="Сбросить все оценки">🔄</button>
+            </div>
+            <div id="gameSelectionError" class="game-error">⚠️ Пожалуйста, выберите игру из выпадающего списка</div>
+            <div id="criteria" class="criteria-grid"></div>
+            <div class="total-section">
+                <div class="total">
+                    <span class="total-label">🏆 Итоговая оценка</span>
+                    <div class="total-wrapper">
+                        <span class="total-score-wrapper" id="totalScoreWrapper">0.0</span>
+                    </div>
+                </div>
+                <button id="saveReviewBtn" class="save-button">💾 Сохранить оценку</button>
+            </div>
+            <div id="saveMsg"></div>
+            <footer>Оцените игру по 10 критериям. Выберите игру из подсказок (Enter или клик).</footer>
+        </div>
+        <div id="myReviewsTab" class="tab-content">
+            <div class="filter-bar">
+                <input type="text" class="filter-search" data-target="myReviews" placeholder="🔍 Поиск по названию игры...">
+                <button class="filter-btn" data-target="myReviews" data-sort="score-desc">⬇️ Оценка: больше → меньше</button>
+                <button class="filter-btn" data-target="myReviews" data-sort="score-asc">⬆️ Оценка: меньше → больше</button>
+            </div>
+            <div id="myReviewsList" class="reviews-list">Загрузка...</div>
+        </div>
+        <div id="reviewsTab" class="tab-content">
+            <div class="filter-bar">
+                <input type="text" class="filter-search" data-target="reviews" placeholder="🔍 Поиск по названию игры...">
+                <button class="filter-btn" data-target="reviews" data-sort="score-desc">⬇️ Оценка: больше → меньше</button>
+                <button class="filter-btn" data-target="reviews" data-sort="score-asc">⬆️ Оценка: меньше → больше</button>
+                <button class="filter-btn" data-target="reviews" data-sort="likes-desc">❤️ По лайкам</button>
+            </div>
+            <div id="reviewsList" class="reviews-list">Загрузка...</div>
+        </div>
+    </div>
+</div>
+<div id="userSidePanel" class="user-side-panel" style="display:none;">
+    <div class="panel-username">👤 <span id="currentUsername"></span></div>
+    <div class="user-side-stats">
+        <div class="user-side-stat" id="statRatedBlock" style="cursor:pointer;">
+            <div class="stat-value" id="statRatedCount">0</div>
+            <div class="stat-label">🎮 Оценено игр</div>
+        </div>
+        <div class="user-side-stat">
+            <div class="stat-value" id="statLikesCount">0</div>
+            <div class="stat-label">❤️ Лайков рецензий</div>
+        </div>
+    </div>
+    <button id="logoutBtn" class="logout-btn">Выйти</button>
+</div>
+</div>
+<div id="reviewDetailOverlay" class="auth-overlay" style="display:none;">
+    <div class="review-detail-modal" id="reviewDetailModal"></div>
+</div>
+
+<script>
+    // ========== ВСТАВЬТЕ СВОИ ДАННЫЕ SUPABASE ==========
+    const SUPABASE_URL = "https://srpgkachfobzyoniyliw.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_Ys7H4KrE7a30IigFMeO5gw_RGfWv8Ei";
+    // =================================================
+
+    // RAWG API (не требует CORS, можно без ключа, но лучше с ключом)
+    // Получить ключ: https://rawg.io/apidocs
+    const RAWG_API_KEY = "931346d65e56464caa4911e954ef4a49"; // опционально, вставьте ключ если есть
+
+    let supabaseClient = null;
+    let currentUser = null;
+    let currentUsername = "";
+    let sliders = [];
+    let selectedGame = null;
+    let autocompleteItems = [];
+    let currentModal = null;
+
+    const CRITERIA = ["Идея и реализация","Сеттинг","Арт дизайн","Геймплей","Техническое состояние","Графика","Сюжет","Духота","Музыка","Наполненность игры"];
+
+    // ---- ПОИСК ИГР ЧЕРЕЗ RAWG API (CORS-friendly, с кэшем и отменой запросов) ----
+    const rawgCache = new Map();
+    let rawgAbortController = null;
+    async function searchGamesRAWG(query) {
+        const q = query.trim();
+        if (!q) return [];
+        const cacheKey = q.toLowerCase();
+        if (rawgCache.has(cacheKey)) return rawgCache.get(cacheKey);
+
+        if (rawgAbortController) rawgAbortController.abort();
+        rawgAbortController = new AbortController();
+
+        let url = `https://api.rawg.io/api/games?search=${encodeURIComponent(q)}&page_size=6`;
+        if (RAWG_API_KEY) url += `&key=${RAWG_API_KEY}`;
+        try {
+            const response = await fetch(url, { signal: rawgAbortController.signal });
+            if (!response.ok) {
+                console.error("RAWG API error:", response.status);
+                return [];
+            }
+            const data = await response.json();
+            if (!Array.isArray(data.results)) return [];
+            const results = data.results.map(game => ({
+                name: game.name,
+                icon: game.background_image || "https://placehold.co/64"
+            }));
+            rawgCache.set(cacheKey, results);
+            return results;
+        } catch (error) {
+            if (error.name === 'AbortError') return null; // запрос отменён - не обновляем UI
+            console.error("Ошибка запроса к RAWG:", error);
+            return [];
+        }
+    }
+
+    function initSupabase() {
+        const sb = window.supabaseJs || window.supabase;
+        if (!sb) { alert("Ошибка: Supabase SDK не загружен."); return null; }
+        return sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+
+    // ---- Металлическая система цветов: бронза → серебро → золото → платина ----
+    // t = 0..1 (доля от максимума)
+    function getMetalTier(t) {
+        if (t < 0.4) return 'bronze';
+        if (t < 0.7) return 'silver';
+        if (t < 0.95) return 'gold';
+        return 'platinum';
+    }
+
+    function getColorForValue(val, isTotal = false) {
+        let t = isTotal ? val / 10 : val;
+        const tier = getMetalTier(t);
+        switch (tier) {
+            case 'bronze': {
+                // тёмная медь -> бронза, по мере роста чуть светлее
+                const f = Math.max(0, t / 0.4);
+                const r = 140 + f * (20);
+                const g = 80 + f * (20);
+                const b = 50 + f * (10);
+                return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+            }
+            case 'silver': {
+                const f = (t - 0.4) / 0.3;
+                const r = 160 + f * (35);
+                const g = 165 + f * (35);
+                const b = 170 + f * (35);
+                return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+            }
+            case 'gold': {
+                const f = (t - 0.7) / 0.25;
+                const r = 210 + f * (45);
+                const g = 165 + f * (30);
+                const b = 30 + f * (10);
+                return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+            }
+            default: // platinum
+                return '#7fa8c9';
+        }
+    }
+
+    // Градиенты "под металл" для фонов карточек/категорий
+    function getMetalGradient(val, isTotal = false) {
+        let t = isTotal ? val / 10 : val;
+        const tier = getMetalTier(t);
+        switch (tier) {
+            case 'bronze':
+                return 'linear-gradient(135deg, #8c5a2e, #b97a4b, #8c5a2e)';
+            case 'silver':
+                return 'linear-gradient(135deg, #b8bcc2, #e6e9ec, #b8bcc2)';
+            case 'gold':
+                return 'linear-gradient(135deg, #caa13a, #f3d27a, #caa13a)';
+            default:
+                return getPerfectGradient();
+        }
+    }
+
+    function getMetalBorder(val, isTotal = false) {
+        let t = isTotal ? val / 10 : val;
+        const tier = getMetalTier(t);
+        switch (tier) {
+            case 'bronze': return '#9c6a3c';
+            case 'silver': return '#9aa1a8';
+            case 'gold': return '#c9a227';
+            default: return '#a9c6de';
+        }
+    }
+
+    function getPerfectGradient() {
+        // Платина: холодное переливающееся серебристо-голубое сияние
+        return "linear-gradient(135deg, #e8f1f8, #b9d4e8, #ffffff, #c9e2f2, #e8f1f8)";
+    }
+
+    function updateSliderColor(spanElem, cardElem, value) {
+        const isPerfect = (value >= 0.95);
+        const color = getColorForValue(value, false);
+        if (cardElem) {
+            if (isPerfect) {
+                cardElem.setAttribute('data-score-perfect', '');
+            } else {
+                cardElem.removeAttribute('data-score-perfect');
+            }
+            cardElem.style.borderColor = getMetalBorder(value, false);
+            cardElem.style.background = getMetalGradient(value, false);
+        }
+        spanElem.style.color = isPerfect ? '#5a7e99' : color;
+        spanElem.style.borderColor = getMetalBorder(value, false);
+    }
+
+    function updateTotalColor() {
+        let sum = sliders.reduce((a, s) => a + (parseFloat(s.input.value) / 10), 0);
+        const totalElem = document.getElementById('totalScoreWrapper');
+        const isPerfect = (sum >= 9.5);
+        totalElem.style.background = "white";
+        totalElem.style.webkitBackgroundClip = "";
+        if (isPerfect) {
+            totalElem.style.color = "#5a7e99";
+            totalElem.style.borderColor = "#a9c6de";
+            totalElem.setAttribute('data-total-perfect', '');
+            showStarTwinkle(totalElem);
+        } else {
+            totalElem.style.color = getColorForValue(sum, true);
+            totalElem.style.borderColor = getMetalBorder(sum, true);
+            totalElem.removeAttribute('data-total-perfect');
+        }
+    }
+
+    function showStarTwinkle(element) {
+        const star = document.createElement('div');
+        star.className = 'star-twinkle';
+        star.innerHTML = '✨';
+        element.style.position = 'relative';
+        element.appendChild(star);
+        setTimeout(() => star.remove(), 1000);
+    }
+
+    function setSlidersDisabled(disabled) {
+        sliders.forEach(s => { s.input.disabled = disabled; });
+    }
+
+    // --- Автодополнение с поиском через RAWG ---
+    const gameInput = document.getElementById('gameName');
+    const autocompleteListDiv = document.getElementById('autocompleteList');
+    const gameIconImg = document.getElementById('gameIcon');
+    const gameErrorDiv = document.getElementById('gameSelectionError');
+    let currentFocusIdx = -1;
+    let debounceTimer;
+
+    async function renderAutocomplete(query) {
+        if (query.trim().length < 2) {
+            autocompleteListDiv.style.display = 'none';
+            return;
+        }
+        const games = await searchGamesRAWG(query);
+        if (games === null) return; // запрос был отменён более новым - игнорируем
+        autocompleteItems = games;
+        autocompleteListDiv.innerHTML = '';
+        if (!games.length) {
+            autocompleteListDiv.style.display = 'none';
+            return;
+        }
+        autocompleteListDiv.style.display = 'block';
+        games.forEach((game, idx) => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `<img class="autocomplete-icon" loading="lazy" src="${game.icon}" onerror="this.onerror=null;this.src='https://placehold.co/64'"><span>${escapeHtml(game.name)}</span>`;
+            div.dataset.index = idx;
+            div.addEventListener('click', () => selectGame(game));
+            autocompleteListDiv.appendChild(div);
+        });
+        currentFocusIdx = -1;
+    }
+
+    function selectGame(game) {
+        selectedGame = game;
+        gameInput.value = game.name;
+        gameIconImg.src = game.icon;
+        gameIconImg.style.display = 'block';
+        autocompleteListDiv.style.display = 'none';
+        gameErrorDiv.style.display = 'none';
+        setSlidersDisabled(false);
+    }
+
+    gameInput.addEventListener('input', () => {
+        const q = gameInput.value;
+        if (selectedGame && selectedGame.name !== q) {
+            selectedGame = null;
+            gameIconImg.style.display = 'none';
+            setSlidersDisabled(true);
+        }
+        if (selectedGame) gameErrorDiv.style.display = 'none';
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { renderAutocomplete(q); }, 400);
+    });
+
+    gameInput.addEventListener('focus', () => {
+        const q = gameInput.value;
+        if (q.trim().length >= 2) {
+            if (autocompleteItems.length) autocompleteListDiv.style.display = 'block';
+            else renderAutocomplete(q);
+        }
+    });
+
+    document.querySelector('.game-input-group').addEventListener('mouseenter', () => {
+        const q = gameInput.value;
+        if (q.trim().length >= 2) {
+            if (autocompleteItems.length) autocompleteListDiv.style.display = 'block';
+            else renderAutocomplete(q);
+        }
+    });
+
+    let autocompleteHideTimer;
+    function scheduleAutocompleteHide() {
+        clearTimeout(autocompleteHideTimer);
+        autocompleteHideTimer = setTimeout(() => { autocompleteListDiv.style.display = 'none'; }, 2500);
+    }
+    document.querySelector('.game-input-group').addEventListener('mouseleave', scheduleAutocompleteHide);
+    gameInput.addEventListener('blur', scheduleAutocompleteHide);
+    document.querySelector('.game-input-group').addEventListener('mouseenter', () => clearTimeout(autocompleteHideTimer));
+    gameInput.addEventListener('focus', () => clearTimeout(autocompleteHideTimer));
+
+    gameInput.addEventListener('keydown', (e) => {
+        const items = document.querySelectorAll('.autocomplete-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (items.length) currentFocusIdx = (currentFocusIdx + 1) % items.length;
+            highlightItem(items, currentFocusIdx);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (items.length) currentFocusIdx = (currentFocusIdx - 1 + items.length) % items.length;
+            highlightItem(items, currentFocusIdx);
+        } else if (e.key === 'Enter') {
+            if (currentFocusIdx >= 0 && items[currentFocusIdx]) {
+                e.preventDefault();
+                const idx = parseInt(items[currentFocusIdx].dataset.index);
+                if (!isNaN(idx) && autocompleteItems[idx]) selectGame(autocompleteItems[idx]);
+            } else if (autocompleteItems.length === 1) {
+                e.preventDefault();
+                selectGame(autocompleteItems[0]);
+            }
+        } else if (e.key === 'Escape') {
+            autocompleteListDiv.style.display = 'none';
+        }
+    });
+
+    function highlightItem(items, idx) { items.forEach((it, i) => it.style.background = i === idx ? '#f0e6ff' : ''); }
+    document.addEventListener('click', (e) => { if (!gameInput.contains(e.target) && !autocompleteListDiv.contains(e.target)) autocompleteListDiv.style.display = 'none'; });
+    function escapeHtml(str) { return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    // --- Ползунки ---
+    function buildSliders() {
+        const container = document.getElementById('criteria');
+        if (!container) return;
+        container.innerHTML = '';
+        sliders = [];
+        CRITERIA.forEach((name) => {
+            const div = document.createElement('div');
+            div.className = 'criterion';
+            div.innerHTML = `<div>${name}</div><div class="slider-container"><input type="range" min="0" max="10" step="1" value="5"><span class="value">5.0</span></div>`;
+            container.appendChild(div);
+            const input = div.querySelector('input');
+            const span = div.querySelector('.value');
+            sliders.push({ input, span, card: div });
+            input.addEventListener('input', () => {
+                const val = parseFloat(input.value);
+                span.innerText = val.toFixed(1);
+                updateSliderColor(span, div, val / 10);
+                updateTotal();
+            });
+            updateSliderColor(span, div, 0.5);
+        });
+        updateTotal();
+        setSlidersDisabled(true);
+    }
+
+    function updateTotal() {
+        let sum = sliders.reduce((a, s) => a + (parseFloat(s.input.value) / 10), 0);
+        document.getElementById('totalScoreWrapper').innerText = sum.toFixed(1);
+        updateTotalColor();
+        updateSaveButtonStyle(sum);
+    }
+
+    function updateSaveButtonStyle(sum) {
+        const btn = document.getElementById('saveReviewBtn');
+        const isPerfect = sum >= 9.5;
+        if (isPerfect) {
+            btn.style.background = getPerfectGradient();
+            btn.style.borderColor = '#a9c6de';
+            btn.style.color = 'white';
+            btn.style.textShadow = '0 1px 3px rgba(0,0,0,0.6)';
+            btn.setAttribute('data-perfect', '');
+        } else {
+            btn.style.background = getMetalGradient(sum, true);
+            btn.style.borderColor = 'white';
+            btn.style.color = 'white';
+            btn.style.textShadow = '0 1px 2px rgba(0,0,0,0.5)';
+            btn.removeAttribute('data-perfect');
+        }
+    }
+
+    function resetSliders() {
+        sliders.forEach(s => {
+            s.input.value = '5';
+            s.span.innerText = '5.0';
+            updateSliderColor(s.span, s.card, 0.5);
+        });
+        updateTotal();
+    }
+
+    // ===== Тема карточки рецензии по итоговой оценке (0-10) =====
+    function applyReviewTheme(el, totalScore, isBadge) {
+        const isPerfect = totalScore >= 9.5;
+        if (isPerfect) {
+            if (isBadge) {
+                el.setAttribute('data-perfect', '');
+            } else {
+                el.setAttribute('data-score-perfect', '');
+                el.style.borderColor = '#a9c6de';
+            }
+        } else {
+            if (isBadge) {
+                el.removeAttribute('data-perfect');
+                el.style.background = 'white';
+                el.style.webkitBackgroundClip = '';
+                el.style.color = getColorForValue(totalScore, true);
+                el.style.borderColor = getMetalBorder(totalScore, true);
+            } else {
+                el.removeAttribute('data-score-perfect');
+                el.style.background = getMetalGradient(totalScore, true);
+                el.style.borderColor = getMetalBorder(totalScore, true);
+            }
+        }
+    }
+
+    function formatDate(iso) {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        } catch { return ''; }
+    }
+
+    // ===== Карточка рецензии (используется и в "Мои", и в "Общие") =====
+    function createReviewCard(r, opts = {}) {
+        const { showLikes = false, likeCount = 0, isLiked = false } = opts;
+        const div = document.createElement('div');
+        div.className = 'review-card-new';
+        applyReviewTheme(div, r.total_score, false);
+
+        const badgeAttr = r.total_score >= 9.5 ? 'data-perfect' : '';
+        let likeHtml = '';
+        if (showLikes) {
+            likeHtml = `<button class="like-btn ${isLiked ? 'liked' : ''}" data-review-id="${r.id}">
+                ${isLiked ? '❤️' : '🤍'} <span class="like-count">${likeCount}</span>
+            </button>`;
+        }
+
+        div.innerHTML = `
+            <img class="review-card-icon" loading="lazy" src="${r.game_icon}" onerror="this.onerror=null;this.src='https://placehold.co/64'">
+            <div class="review-card-body">
+                <div class="review-card-game">${escapeHtml(r.game_name)}</div>
+                <div class="review-card-user">👤 ${escapeHtml(r.username)}</div>
+                <div class="review-card-meta">
+                    <span class="review-card-score-badge" ${badgeAttr}>⭐ ${r.total_score.toFixed(1)}</span>
+                    <span class="review-card-date">${formatDate(r.created_at)}</span>
+                </div>
+            </div>
+            ${likeHtml}
+        `;
+
+        const badge = div.querySelector('.review-card-score-badge');
+        if (r.total_score < 9.5) {
+            badge.style.color = getColorForValue(r.total_score, true);
+            badge.style.borderColor = getMetalBorder(r.total_score, true);
+        }
+        badge.style.fontFamily = "'Inter', sans-serif";
+        badge.style.fontWeight = '800';
+        badge.style.letterSpacing = '0px';
+
+        // Открытие детальной карточки по клику (кроме клика по кнопке лайка)
+        div.addEventListener('click', (e) => {
+            if (e.target.closest('.like-btn')) return;
+            openReviewDetail(r);
+        });
+
+        if (showLikes) {
+            const likeBtn = div.querySelector('.like-btn');
+            likeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleLike(r.id, likeBtn);
+            });
+        }
+
+        return div;
+    }
+
+    // ===== Детальный просмотр рецензии (модалка, стиль как при оценивании) =====
+    function openReviewDetail(r) {
+        const overlay = document.getElementById('reviewDetailOverlay');
+        const modal = document.getElementById('reviewDetailModal');
+        const totalAttr = r.total_score >= 9.5 ? 'data-perfect' : '';
+        const totalColor = r.total_score >= 9.5 ? '' : getColorForValue(r.total_score, true);
+        const totalBorder = r.total_score >= 9.5 ? '' : getMetalBorder(r.total_score, true);
+
+        const criteriaHtml = CRITERIA.map((name, i) => {
+            const val = r.scores[i] ?? 0;
+            const normalized = val / 10;
+            const isPerfect = normalized >= 0.95;
+            const bg = isPerfect ? getPerfectGradient() : getMetalGradient(normalized, false);
+            const border = isPerfect ? '#a9c6de' : getMetalBorder(normalized, false);
+            return `<div class="review-detail-criterion" style="background:${bg}; border:1px solid ${border};">
+                <span>${escapeHtml(name)}</span><span>${val.toFixed(1)}</span>
+            </div>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="review-detail-header">
+                <img class="review-detail-icon" src="${r.game_icon}" onerror="this.onerror=null;this.src='https://placehold.co/80'">
+                <div>
+                    <div class="review-detail-title">${escapeHtml(r.game_name)}</div>
+                    <div class="review-detail-user">👤 ${escapeHtml(r.username)}</div>
+                    <div class="review-detail-date">${formatDate(r.created_at)}</div>
+                </div>
+                <div class="review-detail-total" ${totalAttr} style="${totalColor ? `color:${totalColor}; border-color:${totalBorder};` : ''}">${r.total_score.toFixed(1)}</div>
+            </div>
+            <div class="review-detail-criteria">${criteriaHtml}</div>
+            <button class="save-button review-detail-close" id="reviewDetailCloseBtn">Закрыть</button>
+        `;
+        overlay.style.display = 'flex';
+        document.getElementById('reviewDetailCloseBtn').addEventListener('click', closeReviewDetail);
+        overlay.onclick = (e) => { if (e.target === overlay) closeReviewDetail(); };
+        const escHandler = (e) => { if (e.key === 'Escape') { closeReviewDetail(); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    function closeReviewDetail() {
+        document.getElementById('reviewDetailOverlay').style.display = 'none';
+    }
+
+    // ===== Лайки =====
+    async function toggleLike(reviewId, btnEl) {
+        if (!currentUser) return;
+        btnEl.disabled = true;
+        try {
+            const { data: existing } = await supabaseClient.from('review_likes')
+                .select('id').eq('review_id', reviewId).eq('user_id', currentUser.id).maybeSingle();
+
+            const countSpan = btnEl.querySelector('.like-count');
+            let count = parseInt(countSpan.innerText) || 0;
+
+            if (existing) {
+                const { error } = await supabaseClient.from('review_likes').delete().eq('id', existing.id);
+                if (!error) {
+                    btnEl.classList.remove('liked');
+                    btnEl.innerHTML = `🤍 <span class="like-count">${Math.max(0, count - 1)}</span>`;
+                    allReviewsLikes[reviewId] = Math.max(0, (allReviewsLikes[reviewId]||0) - 1);
+                    allReviewsMyLikes.delete(reviewId);
+                }
+            } else {
+                const { error } = await supabaseClient.from('review_likes').insert([{ review_id: reviewId, user_id: currentUser.id }]);
+                if (!error) {
+                    btnEl.classList.add('liked');
+                    btnEl.innerHTML = `❤️ <span class="like-count">${count + 1}</span>`;
+                    allReviewsLikes[reviewId] = (allReviewsLikes[reviewId]||0) + 1;
+                    allReviewsMyLikes.add(reviewId);
+                }
+            }
+        } catch (err) {
+            console.error('Ошибка лайка:', err);
+        } finally {
+            btnEl.disabled = false;
+        }
+    }
+
+    // ===== Кэш данных для фильтрации/сортировки =====
+    let allReviewsCache = [];
+    let allReviewsLikes = {};
+    let allReviewsMyLikes = new Set();
+    let myReviewsCache = [];
+    const filterState = {
+        myReviews: { search: '', sort: '' },
+        reviews: { search: '', sort: '' }
+    };
+
+    function applyFilterSort(data, state, likesByReview) {
+        let result = data;
+        if (state.search.trim()) {
+            const q = state.search.trim().toLowerCase();
+            result = result.filter(r => r.game_name.toLowerCase().includes(q));
+        }
+        if (state.sort === 'score-desc') {
+            result = [...result].sort((a,b) => b.total_score - a.total_score);
+        } else if (state.sort === 'score-asc') {
+            result = [...result].sort((a,b) => a.total_score - b.total_score);
+        } else if (state.sort === 'likes-desc' && likesByReview) {
+            result = [...result].sort((a,b) => (likesByReview[b.id]||0) - (likesByReview[a.id]||0));
+        }
+        return result;
+    }
+
+    function renderReviewsList(target) {
+        if (target === 'reviews') {
+            const container = document.getElementById('reviewsList');
+            const filtered = applyFilterSort(allReviewsCache, filterState.reviews, allReviewsLikes);
+            container.innerHTML = '';
+            if (!filtered.length) { container.innerHTML = '📭 Ничего не найдено.'; return; }
+            filtered.forEach(r => {
+                const card = createReviewCard(r, {
+                    showLikes: true,
+                    likeCount: allReviewsLikes[r.id] || 0,
+                    isLiked: allReviewsMyLikes.has(r.id)
+                });
+                container.appendChild(card);
+            });
+        } else {
+            const container = document.getElementById('myReviewsList');
+            const filtered = applyFilterSort(myReviewsCache, filterState.myReviews, null);
+            container.innerHTML = '';
+            if (!filtered.length) { container.innerHTML = '📭 Ничего не найдено.'; return; }
+            filtered.forEach(r => {
+                const card = createReviewCard(r, { showLikes: false });
+                container.appendChild(card);
+            });
+        }
+    }
+
+    // Обработчики фильтров/сортировки
+    document.querySelectorAll('.filter-search').forEach(input => {
+        let debounce;
+        input.addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                const target = input.dataset.target;
+                filterState[target].search = input.value;
+                renderReviewsList(target);
+            }, 250);
+        });
+    });
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.target;
+            const sort = btn.dataset.sort;
+            const isActive = btn.classList.contains('active');
+            document.querySelectorAll(`.filter-btn[data-target="${target}"]`).forEach(b => b.classList.remove('active'));
+            filterState[target].sort = isActive ? '' : sort;
+            if (!isActive) btn.classList.add('active');
+            renderReviewsList(target);
+        });
+    });
+
+    async function saveReview() {
+        if (!currentUser) { document.getElementById('saveMsg').innerHTML = '❌ Войдите в аккаунт'; return; }
+        if (!selectedGame) { gameErrorDiv.style.display = 'block'; document.getElementById('saveMsg').innerHTML = '❌ Сначала выберите игру из списка'; return; }
+        const scores = sliders.map(s => parseFloat(s.input.value));
+        const total = scores.reduce((a,b)=>a+b,0) / 10;
+        const { error } = await supabaseClient.from('reviews').insert([{
+            game_name: selectedGame.name, game_icon: selectedGame.icon, user_id: currentUser.id,
+            username: currentUsername, total_score: total, scores: scores, created_at: new Date().toISOString()
+        }]);
+        if (error) document.getElementById('saveMsg').innerHTML = 'Ошибка: ' + error.message;
+        else {
+            document.getElementById('saveMsg').innerHTML = '✅ Сохранено!';
+            setTimeout(()=>document.getElementById('saveMsg').innerHTML='',2000);
+            loadMyReviews();
+            loadAllReviews();
+            loadUserStats();
+        }
+    }
+
+    // ===== Общие рецензии (все пользователи, по порядку добавления, с лайками) =====
+    async function loadAllReviews() {
+        const container = document.getElementById('reviewsList');
+        if (!container) return;
+        container.innerHTML = 'Загрузка...';
+        const { data, error } = await supabaseClient.from('reviews').select('*').order('created_at', { ascending: true }).limit(100);
+        if (error) { container.innerHTML = '❌ Ошибка загрузки'; return; }
+        if (!data.length) { container.innerHTML = '📭 Пока нет рецензий.'; return; }
+
+        // Загружаем лайки для всех рецензий за один запрос
+        const reviewIds = data.map(r => r.id);
+        let likesByReview = {};
+        let myLikes = new Set();
+        try {
+            const { data: likesData } = await supabaseClient.from('review_likes').select('review_id, user_id').in('review_id', reviewIds);
+            (likesData || []).forEach(l => {
+                likesByReview[l.review_id] = (likesByReview[l.review_id] || 0) + 1;
+                if (currentUser && l.user_id === currentUser.id) myLikes.add(l.review_id);
+            });
+        } catch (e) {
+            console.error('Ошибка загрузки лайков:', e);
+        }
+
+        allReviewsCache = data;
+        allReviewsLikes = likesByReview;
+        allReviewsMyLikes = myLikes;
+        renderReviewsList('reviews');
+    }
+
+    // ===== Мои рецензии =====
+    async function loadMyReviews() {
+        const container = document.getElementById('myReviewsList');
+        if (!container) return;
+        if (!currentUser) { container.innerHTML = '❌ Войдите в аккаунт'; return; }
+        container.innerHTML = 'Загрузка...';
+        const { data, error } = await supabaseClient.from('reviews').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(100);
+        if (error) { container.innerHTML = '❌ Ошибка загрузки'; return; }
+        if (!data.length) { container.innerHTML = '📭 У вас пока нет рецензий.'; return; }
+        myReviewsCache = data;
+        renderReviewsList('myReviews');
+    }
+
+    // --- Модальное окно с блокировкой кнопок ---
+    function showAuthModal() {
+        if (currentModal) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'auth-overlay';
+        overlay.innerHTML = `
+            <div class="auth-modal">
+                <h2 id="modalTitle">Вход</h2>
+                <div>
+                    <input type="text" id="usernameInput" placeholder="Никнейм" autofocus>
+                    <div id="emailField" style="display:none;"><input type="email" id="emailInput" placeholder="Email"></div>
+                    <input type="password" id="passwordInput" placeholder="Пароль">
+                    <div id="modalError" class="error-msg"></div>
+                    <button id="modalSubmitBtn">Войти</button>
+                </div>
+                <div class="switch" id="switchMode">Нет аккаунта? Зарегистрироваться</div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        currentModal = overlay;
+
+        let isLogin = true;
+        const modalTitle = overlay.querySelector('#modalTitle');
+        const emailField = overlay.querySelector('#emailField');
+        const submitBtn = overlay.querySelector('#modalSubmitBtn');
+        const switchBtn = overlay.querySelector('#switchMode');
+        const usernameInp = overlay.querySelector('#usernameInput');
+        const emailInp = overlay.querySelector('#emailInput');
+        const passwordInp = overlay.querySelector('#passwordInput');
+        const errorDiv = overlay.querySelector('#modalError');
+
+        function updateForm() {
+            if (isLogin) {
+                modalTitle.innerText = 'Вход';
+                emailField.style.display = 'none';
+                submitBtn.innerText = 'Войти';
+                switchBtn.innerText = 'Нет аккаунта? Зарегистрироваться';
+            } else {
+                modalTitle.innerText = 'Регистрация';
+                emailField.style.display = 'block';
+                submitBtn.innerText = 'Зарегистрироваться';
+                switchBtn.innerText = 'Уже есть аккаунт? Войти';
+            }
+        }
+
+        switchBtn.onclick = () => { isLogin = !isLogin; updateForm(); errorDiv.innerText = ''; };
+
+        async function submitForm() {
+            const username = usernameInp.value.trim();
+            const password = passwordInp.value;
+            if (!username || !password) { errorDiv.innerText = 'Заполните все поля'; return; }
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            try {
+                if (!isLogin) {
+                    const email = emailInp.value.trim();
+                    if (!email) {
+                        errorDiv.innerText = 'Введите email';
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        return;
+                    }
+                    const { data, error: suError } = await supabaseClient.auth.signUp({ email, password, options: { data: { username } } });
+                    if (suError) {
+                        errorDiv.innerText = suError.message;
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        return;
+                    }
+                    if (data.user) await supabaseClient.from('profiles').insert([{ id: data.user.id, username, email }]);
+                    errorDiv.innerText = "✅ Регистрация успешна! Теперь войдите.";
+                    isLogin = true;
+                    updateForm();
+                    usernameInp.value = '';
+                    passwordInp.value = '';
+                    if (emailInp) emailInp.value = '';
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                } else {
+                    const { data: profile, error: findErr } = await supabaseClient.from('profiles').select('email').eq('username', username).maybeSingle();
+                    if (findErr || !profile) {
+                        errorDiv.innerText = 'Пользователь не найден';
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        return;
+                    }
+                    const email = profile.email;
+                    const { error: signErr } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (signErr) {
+                        errorDiv.innerText = signErr.message;
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                    } else {
+                        overlay.remove();
+                        currentModal = null;
+                        await loadUserAndShowContent();
+                    }
+                }
+            } catch (err) {
+                errorDiv.innerText = 'Ошибка соединения';
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+        }
+
+        submitBtn.onclick = submitForm;
+        [usernameInp, emailInp, passwordInp].forEach(inp => inp?.addEventListener('keypress', e => { if (e.key === 'Enter') submitForm(); }));
+        const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); currentModal = null; document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    async function loadUserStats() {
+        if (!currentUser) return;
+        try {
+            const { count: ratedCount } = await supabaseClient.from('reviews').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id);
+            document.getElementById('statRatedCount').innerText = ratedCount ?? 0;
+
+            const { data: myReviews } = await supabaseClient.from('reviews').select('id').eq('user_id', currentUser.id);
+            const ids = (myReviews || []).map(r => r.id);
+            if (ids.length) {
+                const { count: likesCount } = await supabaseClient.from('review_likes').select('id', { count: 'exact', head: true }).in('review_id', ids);
+                document.getElementById('statLikesCount').innerText = likesCount ?? 0;
+            } else {
+                document.getElementById('statLikesCount').innerText = 0;
+            }
+        } catch (err) {
+            console.error('Ошибка загрузки статистики:', err);
+        }
+    }
+
+    async function loadUserAndShowContent() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) return;
+        currentUser = session.user;
+        const { data: profile } = await supabaseClient.from('profiles').select('username').eq('id', currentUser.id).maybeSingle();
+        currentUsername = profile?.username || currentUser.user_metadata?.username || currentUser.email;
+        document.getElementById('currentUsername').innerText = currentUsername;
+        document.getElementById('preAuthBlock').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('userSidePanel').style.display = 'flex';
+        buildSliders();
+        loadAllReviews();
+        loadUserStats();
+        selectedGame = null;
+        gameInput.value = '';
+        gameIconImg.style.display = 'none';
+        gameErrorDiv.style.display = 'none';
+        setSlidersDisabled(true);
+    }
+
+    async function logout() {
+        await supabaseClient.auth.signOut();
+        currentUser = null;
+        selectedGame = null;
+        gameInput.value = '';
+        gameIconImg.style.display = 'none';
+        document.getElementById('preAuthBlock').style.display = 'block';
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('userSidePanel').style.display = 'none';
+        setSlidersDisabled(true);
+        const loginBtn = document.getElementById('mainLoginBtn');
+        if (loginBtn) {
+            loginBtn.removeEventListener('click', showAuthModal);
+            loginBtn.addEventListener('click', showAuthModal);
+        }
+    }
+
+    function switchTab(id) {
+        const allContentIds = ['ratingTab', 'myReviewsTab', 'reviewsTab'];
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab[data-tab="${id}"]`)?.classList.add('active');
+        allContentIds.forEach(cid => document.getElementById(cid).classList.remove('active'));
+        document.getElementById(`${id}Tab`).classList.add('active');
+        if (id === 'reviews') loadAllReviews();
+        if (id === 'myReviews') loadMyReviews();
+    }
+
+    function initTabs() {
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+        });
+        document.getElementById('statRatedBlock')?.addEventListener('click', () => switchTab('myReviews'));
+    }
+
+    async function checkSession() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) await loadUserAndShowContent();
+        else { document.getElementById('preAuthBlock').style.display = 'block'; document.getElementById('mainContent').style.display = 'none'; }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        supabaseClient = initSupabase();
+        if (!supabaseClient) return;
+        await checkSession();
+
+        const loginBtn = document.getElementById('mainLoginBtn');
+        if (loginBtn) {
+            loginBtn.removeEventListener('click', showAuthModal);
+            loginBtn.addEventListener('click', showAuthModal);
+        }
+        document.getElementById('logoutBtn').addEventListener('click', () => logout());
+        document.getElementById('resetSlidersIcon').addEventListener('click', () => resetSliders());
+        document.getElementById('saveReviewBtn').addEventListener('click', () => saveReview());
+        initTabs();
+
+        // Автоочистка выделения текста спустя пару секунд
+        document.addEventListener('mouseup', () => {
+            setTimeout(() => {
+                const sel = window.getSelection();
+                if (sel && sel.toString().length) sel.removeAllRanges();
+            }, 2000);
+        });
+    });
+</script>
+</body>
+</html>
